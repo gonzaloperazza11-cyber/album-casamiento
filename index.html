@@ -39,6 +39,8 @@ h1{margin:12px 0 0;font:400 clamp(44px,14.5vw,68px)/1.1 "Playfair Display","Bodo
 .bar .b{margin:0}
 .newpill{display:block;width:100%;box-sizing:border-box;margin:0 0 14px;padding:10px 14px;border:0;border-radius:14px;background:var(--pri);color:var(--prit);font:700 13px Mulish,system-ui,sans-serif;cursor:pointer;animation:pop .3s ease both}
 @keyframes pop{from{transform:scale(.92);opacity:0}to{transform:scale(1);opacity:1}}
+.gload{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:60px 0;color:var(--mut);font-size:14px}
+.ldr{width:26px;height:26px;border:3px solid var(--bd);border-top-color:var(--pri);border-radius:50%;animation:spin .8s linear infinite}
 .gal{columns:2;column-gap:8px}
 .gi{position:relative;break-inside:avoid;margin:0 0 8px}
 .gi img{width:100%;display:block;border-radius:16px;cursor:pointer;background:var(--bd);min-height:120px}
@@ -176,24 +178,30 @@ function renderMore(){
   renderedCount+=next.length;
   if(renderedCount<allItems.length)observeSentinel();else if(io){io.disconnect();io=null}
 }
-function renderGallery(){
+function renderGallery(status){                   // status: 'loading' | 'loaded' | 'error'
   renderedCount=0;
-  view(`<div class="pad" style="padding-bottom:40px"><h2>Galería</h2><p class="n" id="gc" style="margin:0 0 14px">${allItems.length} foto${allItems.length==1?'':'s'}</p>${allItems.length?'<div class="gal" id="gal"></div><div id="sentinel"></div>':'<p class="n" id="empty">Todavía no hay fotos. ¡Sé el primero!</p>'}</div>`,true);
+  const hasItems=allItems.length>0;
+  const countTxt=hasItems?`${allItems.length} foto${allItems.length==1?'':'s'}`:(status==='loading'?'':'0 fotos');
+  const body=hasItems?'<div class="gal" id="gal"></div><div id="sentinel"></div>'
+    :status==='loading'?'<div class="gload"><span class="ldr"></span>Cargando fotos…</div>'
+    :status==='error'?'<p class="n" id="empty">No se pudo cargar. Probá de nuevo en un momento.</p>'
+    :'<p class="n" id="empty">Todavía no hay fotos. ¡Sé el primero!</p>';
+  view(`<div class="pad" style="padding-bottom:40px"><h2>Galería</h2><p class="n" id="gc" style="margin:0 0 14px">${countTxt}</p>${body}</div>`,true);
   const gal=$('#gal');if(gal)gal.addEventListener('click',onGalClick);
   renderMore();
 }
 async function gallery(){
   stopPollingTimer();
   allItems=pending.filter(p=>p.status!=='done').map(p=>({local:p}));
-  renderGallery();                                 // pinta lo propio al instante (optimista)
+  renderGallery('loading');                        // pinta lo propio al instante, pero todavía no sabemos si hay más en el servidor
   let serverItems;
   try{
     serverItems=DEMO?Array.from({length:12},(_,i)=>({id:'demo-'+i,t:Date.now()-i*600000})):await (await fetch(CFG.SCRIPT_URL)).json();
-  }catch(e){startPolling();return}
+  }catch(e){renderGallery('error');startPolling();return}
   const serverIds=new Set(serverItems.map(x=>x.id));
   const localKeep=pending.filter(p=>p.status!=='done'||!serverIds.has(p.driveId));
   allItems=[...localKeep.map(p=>({local:p})),...serverItems.map(x=>({id:x.id,t:x.t}))];
-  renderGallery();
+  renderGallery('loaded');
   startPolling();
 }
 function startPolling(){
