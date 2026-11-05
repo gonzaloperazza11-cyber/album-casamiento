@@ -36,9 +36,19 @@ h1{margin:12px 0 0;font:400 clamp(44px,14.5vw,68px)/1.1 "Playfair Display","Bodo
 .th{position:relative}.th img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:16px;display:block}
 .th button{position:absolute;top:6px;right:6px;width:28px;height:28px;padding:0;border:0;border-radius:50%;background:rgba(20,20,18,.72);color:#fff;font-size:18px;line-height:1;cursor:pointer;backdrop-filter:blur(4px)}
 .bar{position:fixed;left:0;right:0;bottom:0;z-index:9;max-width:480px;margin:auto;padding:30px 20px calc(14px + env(safe-area-inset-bottom,0px));background:linear-gradient(transparent,var(--bg) 40%)}
-.bar .b{margin:0}.prog{height:4px;border-radius:4px;background:var(--bd);margin:0 6px 10px;overflow:hidden}.prog i{display:block;height:100%;width:0;background:var(--gold);transition:width .3s}
-.ck{display:block;width:150px;margin:48px auto 10px;animation:pop .5s cubic-bezier(.2,1.4,.4,1)}@keyframes pop{from{transform:scale(.2);opacity:0}to{transform:scale(1);opacity:1}}
-.gal{columns:2;column-gap:8px}.gal img{width:100%;display:block;margin:0 0 8px;border-radius:16px;cursor:pointer;break-inside:avoid;background:var(--bd);min-height:120px}
+.bar .b{margin:0}
+.newpill{display:block;width:100%;box-sizing:border-box;margin:0 0 14px;padding:10px 14px;border:0;border-radius:14px;background:var(--pri);color:var(--prit);font:700 13px Mulish,system-ui,sans-serif;cursor:pointer;animation:pop .3s ease both}
+@keyframes pop{from{transform:scale(.92);opacity:0}to{transform:scale(1);opacity:1}}
+.gal{columns:2;column-gap:8px}
+.gi{position:relative;break-inside:avoid;margin:0 0 8px}
+.gi img{width:100%;display:block;border-radius:16px;cursor:pointer;background:var(--bd);min-height:120px}
+.gi .spin{display:none;position:absolute;inset:0;align-items:center;justify-content:center;background:rgba(10,10,9,.35);border-radius:16px}
+.gi .spin::after{content:"";width:22px;height:22px;border:3px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite}
+.gi.busy .spin{display:flex}
+.gi.err img{opacity:.45}
+.gi .retry{display:none;position:absolute;left:8px;right:8px;bottom:8px;padding:8px;border:0;border-radius:10px;background:#c0392b;color:#fff;font:700 12px Mulish,system-ui,sans-serif;cursor:pointer}
+.gi.err .retry{display:block}
+@keyframes spin{to{transform:rotate(360deg)}}
 .lb{position:fixed;inset:0;z-index:20;background:rgba(10,10,9,.95);display:flex;align-items:center;justify-content:center;animation:in .2s;touch-action:pan-y}
 .lb img{max-width:100%;max-height:100%;object-fit:contain;user-select:none}
 .lb button{position:absolute;width:48px;height:48px;padding:0;border:0;border-radius:50%;background:rgba(255,255,255,.16);color:#fff;display:grid;place-items:center;cursor:pointer;backdrop-filter:blur(6px)}
@@ -50,21 +60,24 @@ h1{margin:12px 0 0;font:400 clamp(44px,14.5vw,68px)/1.1 "Playfair Display","Bodo
 <script>
 // ===== CONFIGURACIÓN =====
 const CFG={
-    SCRIPT_URL:'https://script.google.com/macros/s/AKfycbwP1u7LZ510T9LbKgW7SrXD-VNFRSmh4caC1SI7x2yqk3x73DkOk3PiZ0Ln2OiGmyNz/exec',            // URL de la web app de Apps Script (termina en /exec). Vacío = modo demo
+  SCRIPT_URL:'https://script.google.com/macros/s/AKfycbwP1u7LZ510T9LbKgW7SrXD-VNFRSmh4caC1SI7x2yqk3x73DkOk3PiZ0Ln2OiGmyNz/exec',            // URL de la web app de Apps Script (termina en /exec). Vacío = modo demo
   SUB:'Casamiento de',
   TITLE:'Gonza & Fer',
   DATE:'12 · DICIEMBRE · 2026',
   MSG:'Gracias por acompañarnos. Subí las fotos que saques hoy y revivamos juntos este día.'
 };
-const $=q=>document.querySelector(q),app=$('#app'),DEMO=!CFG.SCRIPT_URL,local=[];
+const $=q=>document.querySelector(q),app=$('#app'),DEMO=!CFG.SCRIPT_URL;
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const IC='<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-9 9"/></svg>';
 const thumb=(id,w)=>`https://drive.google.com/thumbnail?id=${id}&sz=w${w}`;
 const ph=i=>'data:image/svg+xml,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${3+i%2} 4"><defs><linearGradient id="g"><stop offset="0" stop-color="hsl(${90+i*23%70} 22% 68%)"/><stop offset="1" stop-color="hsl(${30+i*19%40} 35% 62%)"/></linearGradient></defs><rect width="9" height="9" fill="url(#g)"/></svg>`);
-const view=(inner,back)=>{app.innerHTML=`<div class="top">${back?'<button class="bk" id="bk" aria-label="Volver"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>':'<span></span>'}<div class="seal">G&amp;F</div><span></span></div><main class="view">${inner}</main>`;if(back)$('#bk').onclick=home};
+let galleryPoll=null;
+const stopPollingTimer=()=>{if(galleryPoll){clearInterval(galleryPoll);galleryPoll=null}};
+const view=(inner,back)=>{stopPollingTimer();app.innerHTML=`<div class="top">${back?'<button class="bk" id="bk" aria-label="Volver"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>':'<span></span>'}<div class="seal">G&amp;F</div><span></span></div><main class="view">${inner}</main>`;if(back)$('#bk').onclick=home};
 
 // ===== INICIO =====
 function home(){
+  stopPollingTimer();
   app.innerHTML=`<section class="hero view">
   <div class="hc"><svg class="rings" viewBox="0 0 84 44" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="30" cy="22" r="17"/><circle cx="54" cy="22" r="17"/></svg>
   <p class="eyebrow">${esc(CFG.SUB)}</p><h1>${esc(CFG.TITLE).replace('&amp;','<span class="a">&amp;</span>')}</h1><p class="date">${esc(CFG.DATE)}</p></div>
@@ -73,19 +86,38 @@ function home(){
 }
 
 // ===== SUBIR =====
-let sel=[];
+let sel=[],pending=[],pid=0;
 async function shrink(f){                       // máx. 3000 px, JPEG 90%: liviana y en alta calidad
   try{const bm=await createImageBitmap(f),k=Math.min(1,3000/Math.max(bm.width,bm.height)),c=document.createElement('canvas');
     c.width=Math.round(bm.width*k);c.height=Math.round(bm.height*k);c.getContext('2d').drawImage(bm,0,0,c.width,c.height);
     return await new Promise(r=>c.toBlob(r,'image/jpeg',.9))||f}catch{return f}
 }
 const b64=b=>new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result.split(',')[1]);r.onerror=no;r.readAsDataURL(b)});
-async function send(f){
-  if(DEMO){await new Promise(r=>setTimeout(r,500));local.unshift(URL.createObjectURL(f));return}
-  const b=await shrink(f),ext=(b.type.split('/')[1]||'jpg').replace('jpeg','jpg');
-  const r=await fetch(CFG.SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
-    body:JSON.stringify({name:Date.now()+'_'+Math.random().toString(36).slice(2,6)+'.'+ext,type:b.type,data:await b64(b)})});
-  const j=await r.json();if(!j.ok)throw new Error(j.error||'Error al guardar');
+async function send(item){                       // sube una foto; nunca tira, solo marca estado
+  if(DEMO){await new Promise(r=>setTimeout(r,500+Math.random()*500));item.status='done';item.driveId='demo-'+item.localId;return}
+  try{
+    const b=await shrink(item.f),ext=(b.type.split('/')[1]||'jpg').replace('jpeg','jpg');
+    const r=await fetch(CFG.SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({name:Date.now()+'_'+Math.random().toString(36).slice(2,6)+'.'+ext,type:b.type,data:await b64(b)})});
+    const j=await r.json();if(!j.ok)throw new Error(j.error||'Error al guardar');
+    item.status='done';item.driveId=j.id;
+  }catch(e){item.status='error';item.errorMsg=String(e.message||e)}
+}
+function runQueue(items,concurrency){             // hasta N subidas en simultáneo, cada una independiente
+  let i=0;
+  const worker=async()=>{while(i<items.length){const item=items[i++];await send(item);updateTileDOM(item)}};
+  return Promise.all(Array.from({length:Math.min(concurrency,items.length)},worker));
+}
+function updateTileDOM(item){
+  const el=document.querySelector(`.gi[data-local="${item.localId}"]`);
+  if(!el)return;
+  el.classList.toggle('busy',item.status==='uploading');
+  el.classList.toggle('err',item.status==='error');
+}
+function retryItem(localId){
+  const item=pending.find(p=>p.localId===localId);if(!item)return;
+  item.status='uploading';item.errorMsg=null;updateTileDOM(item);
+  send(item).then(()=>updateTileDOM(item));
 }
 function addFiles(fs){[...fs].filter(f=>f.type.startsWith('image/')).forEach(f=>sel.push({f,u:URL.createObjectURL(f)}));upload()}
 function upload(msg){
@@ -93,7 +125,7 @@ function upload(msg){
   <label class="dz" id="dz"><span>${IC}<br><b>Tocá para elegir fotos</b><small>podés seleccionar varias a la vez</small></span><input id="gf" type="file" accept="image/*" multiple hidden></label>
   <div class="pv">${sel.map((s,i)=>`<div class="th"><img src="${s.u}" alt=""><button data-x="${i}" aria-label="Quitar foto">×</button></div>`).join('')}</div>
   <p class="n c" id="st">${esc(msg||'')}</p></div>
-  <div class="bar" ${sel.length?'':'hidden'}><div class="prog" id="pr" hidden><i id="pg"></i></div><button class="b p" id="pub">Publicar ${sel.length} foto${sel.length==1?'':'s'}</button></div>`,true);
+  <div class="bar" ${sel.length?'':'hidden'}><button class="b p" id="pub">Publicar ${sel.length} foto${sel.length==1?'':'s'}</button></div>`,true);
   const dz=$('#dz');
   $('#gf').onchange=e=>addFiles(e.target.files);
   dz.ondragover=e=>{e.preventDefault();dz.classList.add('over')};dz.ondragleave=()=>dz.classList.remove('over');
@@ -101,34 +133,97 @@ function upload(msg){
   app.querySelectorAll('[data-x]').forEach(b=>b.onclick=()=>{URL.revokeObjectURL(sel[b.dataset.x].u);sel.splice(b.dataset.x,1);upload()});
   $('#pub').onclick=publish;
 }
-async function publish(){
-  $('#pub').disabled=true;$('#pr').hidden=false;app.querySelectorAll('[data-x]').forEach(x=>x.hidden=true);
-  const total=sel.length;let n=0;
-  try{while(sel.length){$('#st').textContent=`Subiendo ${n+1} de ${total}…`;await send(sel[0].f);sel.shift();n++;$('#pg').style.width=n/total*100+'%'}}
-  catch(e){return upload('No se pudo subir: '+(e.message||e)+'. Probá de nuevo.')}
-  view(`<div class="pad c"><svg class="ck" viewBox="0 0 120 120" fill="none"><circle cx="60" cy="60" r="56" fill="#5f7a64"/><circle cx="60" cy="60" r="56" stroke="#b8935a" stroke-width="3" transform="scale(1.0)"/><path d="M34 62l18 18 34-38" stroke="#fff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/></svg>
-  <h2>Carga completa</h2><p class="n">${n} foto${n==1?'':'s'} ya forman parte de nuestro álbum.<br>¡Gracias por ser parte de este día!</p></div>
-  <div class="bar"><button class="b p" id="more">Subir más fotos</button><button class="b g" id="vg" style="margin-top:10px">Ver galería</button></div>`,true);
-  $('#more').onclick=()=>upload();$('#vg').onclick=gallery;
+function publish(){                                // optimista: a la galería ya, subir atrás
+  if(!sel.length)return;
+  const items=sel.map(s=>({localId:'p'+(pid++),u:s.u,f:s.f,status:'uploading'}));
+  pending=[...items,...pending];
+  sel=[];
+  gallery();
+  runQueue(items,3);
 }
 
 // ===== GALERÍA =====
+let allItems=[],renderedCount=0,io=null;
+const PAGE=24;
+function srcFor(it,idx){
+  if(it.local)return{t:it.local.u,f:it.local.u};
+  if(DEMO)return{t:ph(idx),f:ph(idx)};
+  return{t:thumb(it.id,500),f:thumb(it.id,1600)};
+}
+function tileHTML(it,idx){
+  if(it.local){
+    const p=it.local,s=srcFor(it,idx);
+    return `<div class="gi ${p.status==='uploading'?'busy':''} ${p.status==='error'?'err':''}" data-local="${p.localId}">
+      <img src="${s.t}" data-i="${idx}" loading="lazy" alt=""><div class="spin"></div>
+      <button class="retry" data-retry="${p.localId}">Reintentar</button></div>`;
+  }
+  return `<div class="gi"><img src="${srcFor(it,idx).t}" data-i="${idx}" loading="lazy" alt=""></div>`;
+}
+function onGalClick(e){
+  const r=e.target.closest('[data-retry]');if(r){retryItem(r.dataset.retry);return}
+  const im=e.target.closest('[data-i]');if(im)lightbox(+im.dataset.i);
+}
+function observeSentinel(){
+  const s=$('#sentinel');if(!s)return;
+  if(io)io.disconnect();
+  io=new IntersectionObserver(es=>{if(es[0].isIntersecting)renderMore()},{rootMargin:'800px'});
+  io.observe(s);
+}
+function renderMore(){
+  const gal=$('#gal');if(!gal)return;
+  const next=allItems.slice(renderedCount,renderedCount+PAGE);
+  gal.insertAdjacentHTML('beforeend',next.map((it,k)=>tileHTML(it,renderedCount+k)).join(''));
+  renderedCount+=next.length;
+  if(renderedCount<allItems.length)observeSentinel();else if(io){io.disconnect();io=null}
+}
+function renderGallery(){
+  renderedCount=0;
+  view(`<div class="pad" style="padding-bottom:40px"><h2>Galería</h2><p class="n" id="gc" style="margin:0 0 14px">${allItems.length} foto${allItems.length==1?'':'s'}</p>${allItems.length?'<div class="gal" id="gal"></div><div id="sentinel"></div>':'<p class="n" id="empty">Todavía no hay fotos. ¡Sé el primero!</p>'}</div>`,true);
+  const gal=$('#gal');if(gal)gal.addEventListener('click',onGalClick);
+  renderMore();
+}
 async function gallery(){
-  view('<div class="pad"><h2>Galería</h2><p class="n">Cargando…</p></div>',true);
-  let items=[];
+  stopPollingTimer();
+  allItems=pending.filter(p=>p.status!=='done').map(p=>({local:p}));
+  renderGallery();                                 // pinta lo propio al instante (optimista)
+  let serverItems;
   try{
-    if(DEMO)items=[...local,...Array.from({length:10},(_,i)=>ph(i))].map(u=>({u,f:u}));
-    else items=(await (await fetch(CFG.SCRIPT_URL)).json()).map(x=>({u:thumb(x.id,500),f:thumb(x.id,1600)}));
-  }catch(e){return view('<div class="pad"><h2>Galería</h2><p class="n">No se pudo cargar. Probá de nuevo en un momento.</p></div>',true)}
-  view(`<div class="pad" style="padding-bottom:40px"><h2>Galería</h2><p class="n" style="margin:0 0 14px">${items.length} foto${items.length==1?'':'s'}</p>${items.length?`<div class="gal">${items.map((x,i)=>`<img src="${x.u}" data-i="${i}" loading="lazy" alt="">`).join('')}</div>`:'<p class="n">Todavía no hay fotos. ¡Sé el primero!</p>'}</div>`,true);
-  app.querySelectorAll('[data-i]').forEach(im=>im.onclick=()=>lightbox(items,+im.dataset.i));
+    serverItems=DEMO?Array.from({length:12},(_,i)=>({id:'demo-'+i,t:Date.now()-i*600000})):await (await fetch(CFG.SCRIPT_URL)).json();
+  }catch(e){startPolling();return}
+  const serverIds=new Set(serverItems.map(x=>x.id));
+  const localKeep=pending.filter(p=>p.status!=='done'||!serverIds.has(p.driveId));
+  allItems=[...localKeep.map(p=>({local:p})),...serverItems.map(x=>({id:x.id,t:x.t}))];
+  renderGallery();
+  startPolling();
+}
+function startPolling(){
+  stopPollingTimer();
+  galleryPoll=setInterval(checkForNew,25000);
+}
+async function checkForNew(){                      // avisa si hay fotos nuevas, sin reordenar lo que estás mirando
+  if(document.visibilityState!=='visible'||DEMO||!$('#gal'))return;
+  try{
+    const serverItems=await (await fetch(CFG.SCRIPT_URL)).json();
+    const knownIds=new Set(allItems.filter(x=>!x.local).map(x=>x.id));
+    const freshCount=serverItems.filter(x=>!knownIds.has(x.id)).length;
+    if(freshCount>0)showNewPill(freshCount);
+  }catch(e){}
+}
+function showNewPill(n){
+  let b=$('#newpill');
+  if(!b){
+    b=document.createElement('button');b.id='newpill';b.className='newpill';
+    const gc=$('#gc');if(gc)gc.insertAdjacentElement('afterend',b);
+    b.onclick=()=>gallery();
+  }
+  b.textContent=`${n} foto${n==1?'':'s'} nueva${n==1?'':'s'} · Tocá para ver`;
 }
 // Foto ampliada: flecha para volver, flechas anterior/siguiente, deslizar con el dedo y teclado
-function lightbox(items,i){
+function lightbox(i){
   const l=document.createElement('div');l.className='lb';
-  const A='<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">',many=items.length>1;
+  const A='<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">',many=allItems.length>1;
   l.innerHTML=`<img alt=""><button class="lbk" aria-label="Volver a la galería">${A}<path d="M19 12H5M12 5l-7 7 7 7"/></svg></button><div class="lc"></div>${many?`<button class="lp" aria-label="Anterior">${A}<path d="M15 5l-7 7 7 7"/></svg></button><button class="ln" aria-label="Siguiente">${A}<path d="M9 5l7 7-7 7"/></svg></button>`:''}`;
-  const im=l.querySelector('img'),show=k=>{i=(k+items.length)%items.length;im.src=items[i].f;l.querySelector('.lc').textContent=`${i+1} / ${items.length}`};
+  const im=l.querySelector('img'),show=k=>{i=(k+allItems.length)%allItems.length;im.src=srcFor(allItems[i],i).f;l.querySelector('.lc').textContent=`${i+1} / ${allItems.length}`};
   const key=e=>{if(e.key=='ArrowLeft'&&many)show(i-1);else if(e.key=='ArrowRight'&&many)show(i+1);else if(e.key=='Escape')close()};
   const close=()=>{l.remove();document.removeEventListener('keydown',key)};
   l.querySelector('.lbk').onclick=close;
